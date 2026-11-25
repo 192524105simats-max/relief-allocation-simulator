@@ -1,5 +1,5 @@
 # Render Blueprint: free web service for the Relief Allocation Simulator.
-# Database settings (DATABASE_URL, DB_SSL_CA) are entered in the Render dashboard.
+# Database connection values (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD) are entered in the Render dashboard.
 services:
   - type: web
     name: relief-allocation-simulator
@@ -13,7 +13,15 @@ services:
         value: Asia/Kolkata
       - key: NODE_VERSION
         value: "20"
-      - key: DATABASE_URL
+      - key: DB_SSL
+        value: "true"
+      - key: DB_NAME
+        value: relief_db
+      - key: DB_HOST
         sync: false
-      - key: DB_SSL_CA
+      - key: DB_PORT
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
         sync: false

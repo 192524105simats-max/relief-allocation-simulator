@@ -35,11 +35,15 @@ function config() {
     if (/required|verify/i.test(mode)) sslWanted = true;
   }
   if (process.env.DB_NAME && process.env.DATABASE_URL) cfg.database = process.env.DB_NAME;
+  // TiDB Cloud and most hosted MySQL services only accept TLS connections.
+  if (/\.tidbcloud\.com$/i.test(cfg.host)) sslWanted = true;
   if (sslWanted || process.env.DB_SSL_CA) {
-    // With the provider's CA certificate the server identity is verified;
-    // without it the connection is still encrypted.
+    // The server certificate is verified against the system CAs, or against
+    // DB_SSL_CA when the provider uses its own CA. DB_SSL_VERIFY=false keeps
+    // the connection encrypted but skips the identity check.
     const ca = process.env.DB_SSL_CA ? process.env.DB_SSL_CA.replace(/\\n/g, '\n') : undefined;
-    cfg.ssl = ca ? { ca, rejectUnauthorized: true } : { rejectUnauthorized: false };
+    cfg.ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: process.env.DB_SSL_VERIFY !== 'false' };
+    if (ca) cfg.ssl.ca = ca;
   }
   return cfg;
 }
