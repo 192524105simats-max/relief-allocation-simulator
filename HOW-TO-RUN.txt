@@ -1,0 +1,79 @@
+DISASTER RELIEF RESOURCE ALLOCATION SYSTEM - HOW TO RUN
+=======================================================
+
+This folder is the complete project. It runs on Windows, macOS and Linux.
+
+
+WHAT YOU NEED
+-------------
+1. Node.js (required)
+   Download the LTS version from https://nodejs.org and install it.
+
+2. MySQL Server (needed to save data in the database)
+   Download MySQL Community Server from https://dev.mysql.com/downloads/mysql/
+   During installation, set a password for the "root" user and remember it.
+
+   Without MySQL the simulation still opens and works, but data is kept
+   in memory only and is lost when you close it.
+
+
+STEP 1 - SET YOUR MYSQL PASSWORD
+--------------------------------
+Open the file ".env" in this folder with Notepad / TextEdit.
+(If there is no ".env" yet, run the start file once - it creates it - or
+copy ".env.example" and rename the copy to ".env".)
+
+Change this line to your MySQL root password and save:
+
+    DB_PASSWORD=your_password_here
+
+If your MySQL user is not "root", change DB_USER as well.
+
+
+STEP 2 - START THE SIMULATION
+-----------------------------
+Windows:  double-click  start-windows.bat
+macOS:    double-click  start-mac.command
+          (first time: right-click > Open, then click Open, because the
+           file was downloaded from another computer)
+Linux:    run  bash start-mac.command
+
+The browser opens at http://localhost:3000 by itself.
+If it does not, open that address yourself. Keep the black window open
+while you use the simulation; close it (or press Ctrl+C) to stop.
+
+The database "relief_db", its tables and the starting data are created
+automatically the first time it connects.
+
+Check the top-right corner of the page:
+    green  "MySQL - relief_db"         -> connected, everything is saved
+    amber  "MySQL offline - in-memory" -> not connected; check STEP 1 and
+                                          that the MySQL server is running,
+                                          then click the indicator to retry
+
+
+OPTIONAL - IMPORT THE DATABASE FILE YOURSELF
+--------------------------------------------
+database/relief_db.sql contains the full database (tables, views and
+starting data). To import it manually:
+
+    MySQL Workbench:  File > Open SQL Script > relief_db.sql > Execute (lightning icon)
+    Command line:     mysql -u root -p < database/relief_db.sql
+
+
+TROUBLESHOOTING
+---------------
+"Node.js is not installed"   Install Node.js (see above), then restart the computer
+                             or open a new window and run the start file again.
+
+Amber "offline" indicator    MySQL is not running or the password in .env is wrong.
+"ER_ACCESS_DENIED_ERROR"     The password in .env does not match your MySQL password.
+"ECONNREFUSED"               The MySQL server is not running. Start it
+                             (Windows: Services > MySQL80 > Start;
+                              macOS: System Settings > MySQL > Start).
+
+Port 3000 already in use     The program picks the next free port automatically;
+                             use the address shown in the black window.
+
+Reset scenario               The "Reset scenario" button restores the starting
+                             data in both the page and the database.

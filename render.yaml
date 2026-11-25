@@ -1,0 +1,19 @@
+# Render Blueprint: free web service for the Relief Allocation Simulator.
+# Database settings (DATABASE_URL, DB_SSL_CA) are entered in the Render dashboard.
+services:
+  - type: web
+    name: relief-allocation-simulator
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: node server/server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: TZ
+        value: Asia/Kolkata
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SSL_CA
+        sync: false

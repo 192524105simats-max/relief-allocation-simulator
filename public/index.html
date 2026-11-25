@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relief Allocation System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="20" rx="3" fill="currentColor"/>
+        <path d="M12 6v12M6 12h12" stroke="#fff" stroke-width="2.6" stroke-linecap="square"/>
+      </svg>
+      <div>
+        <div class="brand-name">Relief Allocation System</div>
+        <div class="brand-sub">Flood response coordination &middot; simulation</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="db-chip" id="dbChip" type="button" title="Database connection">
+        <span class="dot"></span><span id="dbText">Connecting</span>
+      </button>
+      <span class="clock" id="clock"></span>
+      <button class="btn btn-ghost" id="resetBtn" type="button">Reset scenario</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="sidebar" aria-label="Sections">
+      <div class="nav-group">
+        <a href="#overview" class="nav-link" data-view="overview"><span class="nav-num">00</span>Overview</a>
+        <a href="#requests" class="nav-link" data-view="requests"><span class="nav-num">01</span>Requests &amp; Inventory</a>
+        <a href="#allocation" class="nav-link" data-view="allocation"><span class="nav-num">02</span>Priority &amp; Allocation</a>
+        <a href="#routes" class="nav-link" data-view="routes"><span class="nav-num">03</span>Routes &amp; Delivery</a>
+        <a href="#log" class="nav-link" data-view="log"><span class="nav-num">04</span>Activity Log</a>
+      </div>
+      <div class="nav-foot">
+        <div class="nav-foot-title">Data structures</div>
+        <ul>
+          <li><b>Hash map</b> request &amp; item records</li>
+          <li><b>Priority queue</b> request order</li>
+          <li><b>Graph</b> road network, Dijkstra</li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="main">
+      <!-- Overview -->
+      <section class="view" id="view-overview">
+        <div class="page-head">
+          <h1>Overview</h1>
+          <p>Current position of requests, stock and deliveries across affected areas.</p>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <div class="grid g-3-2">
+          <div class="panel">
+            <div class="panel-head"><h2>Stock position</h2><span class="muted small">On hand split into reserved and available</span></div>
+            <div class="panel-body" id="stockBars"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Need by area</h2></div>
+            <div class="panel-body flush" id="areaTable"></div>
+          </div>
+        </div>
+        <div class="grid g-2">
+          <div class="panel">
+            <div class="panel-head"><h2>Workflow</h2></div>
+            <div class="panel-body">
+              <ol class="flow">
+                <li><span class="flow-n">1</span><div><b>Record the request</b><span>Validate ID, item and quantity; save in the request hash map.</span></div></li>
+                <li><span class="flow-n">2</span><div><b>Order by priority</b><span>Higher urgency first; equal urgency served oldest first.</span></div></li>
+                <li><span class="flow-n">3</span><div><b>Reserve within stock</b><span>Reserve min(pending, available). The rest stays pending.</span></div></li>
+                <li><span class="flow-n">4</span><div><b>Route and deliver</b><span>Dijkstra on open roads; record dispatch, receipt and shortfall.</span></div></li>
+              </ol>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Recent activity</h2><a href="#log" class="link small">View all</a></div>
+            <div class="panel-body flush" id="recentLog"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Module 1 -->
+      <section class="view" id="view-requests">
+        <div class="page-head">
+          <div class="eyebrow">Module 1</div>
+          <h1>Requests &amp; Inventory</h1>
+          <p>Area-wise requests and warehouse stock. Records are kept in hash maps keyed by request ID and item ID.</p>
+        </div>
+        <div class="grid g-1-2">
+          <div class="panel">
+            <div class="panel-head"><h2 id="reqFormTitle">New request</h2><button class="link small hidden" id="reqCancelEdit" type="button">Cancel edit</button></div>
+            <form class="panel-body form" id="reqForm" autocomplete="off">
+              <div class="row-2">
+                <label>Request ID<input name="request_id" required placeholder="R-111"></label>
+                <label>Requested at<input name="requested_at" type="datetime-local" required></label>
+              </div>
+              <label>Affected area<select name="area_id" required></select></label>
+              <div class="row-2">
+                <label>Item<select name="item_id" required></select></label>
+                <label>Quantity<input name="quantity" type="number" min="1" max="100000" step="1" required></label>
+              </div>
+              <fieldset class="seg-field">
+                <legend>Urgency</legend>
+                <div class="seg" role="radiogroup">
+                  <label><input type="radio" name="urgency" value="3" checked><span>High</span></label>
+                  <label><input type="radio" name="urgency" value="2"><span>Medium</span></label>
+                  <label><input type="radio" name="urgency" value="1"><span>Low</span></label>
+                </div>
+              </fieldset>
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit" id="reqSubmit">Save request</button>
+                <button class="btn btn-danger-ghost hidden" type="button" id="reqDelete">Withdraw</button>
+              </div>
+              <p class="hint" id="reqHint">Duplicate request IDs are rejected. Select a row in the table to update its quantity or urgency.</p>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Requests</h2>
+              <div class="filters" id="reqFilters">
+                <button type="button" data-f="open" class="on">Open</button>
+                <button type="button" data-f="all">All</button>
+                <button type="button" data-f="fulfilled">Fulfilled</button>
+              </div>
+            </div>
+            <div class="panel-body flush scroll-y" id="reqTable"></div>
+          </div>
+        </div>
+
+        <div class="grid g-2-1">
+          <div class="panel">
+            <div class="panel-head"><h2>Inventory</h2><span class="muted small">Available = on hand &minus; reserved</span></div>
+            <div class="panel-body flush" id="invTable"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Add item</h2></div>
+            <form class="panel-body form" id="itemForm" autocomplete="off">
+              <div class="row-2">
+                <label>Item ID<input name="item_id" required placeholder="BLKT" maxlength="10"></label>
+                <label>Unit<input name="unit" required placeholder="pieces" maxlength="20"></label>
+              </div>
+              <label>Name<input name="name" required placeholder="Blankets" maxlength="60"></label>
+              <label>Opening stock<input name="on_hand" type="number" min="0" step="1" value="0" required></label>
+              <div class="form-actions"><button class="btn" type="submit">Add item</button></div>
+            </form>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Hash map inspector</h2>
+            <div class="filters" id="hashFilters">
+              <button type="button" data-m="requests" class="on">Request map</button>
+              <button type="button" data-m="items">Item map</button>
+            </div>
+          </div>
+          <div class="panel-body hash-wrap">
+            <div class="hash-side">
+              <form id="lookupForm" class="lookup" autocomplete="off">
+                <input name="key" placeholder="Look up R-105 or WTR" required>
+                <button class="btn" type="submit">Look up</button>
+              </form>
+              <div id="lookupOut" class="lookup-out muted small">Enter a request ID or item ID to see how the key is hashed to a bucket.</div>
+              <dl class="stats" id="hashStats"></dl>
+            </div>
+            <div class="buckets" id="buckets"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Module 2 -->
+      <section class="view" id="view-allocation">
+        <div class="page-head">
+          <div class="eyebrow">Module 2</div>
+          <h1>Priority &amp; Allocation</h1>
+          <p>A binary heap selects the next request. Each step reserves the smaller of the pending quantity and the available stock.</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="stepBtn" type="button">Next step</button>
+          <button class="btn" id="runBtn" type="button">Run to end</button>
+          <button class="btn btn-ghost" id="rebuildBtn" type="button">Rebuild queue</button>
+          <span class="toolbar-note" id="queueNote"></span>
+        </div>
+        <div class="grid g-3-2">
+          <div class="panel">
+            <div class="panel-head"><h2>Priority queue</h2><span class="legend"><i class="u3"></i>High<i class="u2"></i>Medium<i class="u1"></i>Low</span></div>
+            <div class="panel-body">
+              <div class="heap-svg" id="heapTree"></div>
+              <div class="heap-array" id="heapArray"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Current step</h2></div>
+            <div class="panel-body" id="stepCard"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Allocation pass</h2><span class="muted small" id="runSummary"></span></div>
+          <div class="panel-body flush" id="runTable"></div>
+        </div>
+      </section>
+
+      <!-- Module 3 -->
+      <section class="view" id="view-routes">
+        <div class="page-head">
+          <div class="eyebrow">Module 3</div>
+          <h1>Routes &amp; Delivery</h1>
+          <p>Warehouses, junctions and areas are graph nodes; open roads are edges weighted by travel time. Select a road to mark it blocked or open.</p>
+        </div>
+        <div class="grid g-3-2">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Road network</h2>
+              <span class="legend"><i class="l-open"></i>Open<i class="l-block"></i>Blocked<i class="l-path"></i>Route</span>
+            </div>
+            <div class="panel-body map-body"><div id="graph"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Plan a delivery</h2></div>
+            <div class="panel-body form">
+              <label>Reserved allocation<select id="allocSelect"></select></label>
+              <div class="form-actions">
+                <button class="btn" id="routeBtn" type="button">Find route</button>
+                <button class="btn btn-primary" id="dispatchBtn" type="button" disabled>Dispatch</button>
+                <label class="inline-check"><input type="checkbox" id="animate" checked> Animate search</label>
+              </div>
+              <div id="routeOut" class="route-out"></div>
+              <div id="distTable"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Deliveries</h2>
+            <div class="filters" id="delFilters">
+              <button type="button" data-f="active" class="on">Active</button>
+              <button type="button" data-f="all">All</button>
+            </div>
+          </div>
+          <div class="panel-body flush" id="delTable"></div>
+        </div>
+      </section>
+
+      <!-- Log -->
+      <section class="view" id="view-log">
+        <div class="page-head">
+          <h1>Activity Log</h1>
+          <p>Every change is written to the <code>event_log</code> table alongside the record it affects.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Events</h2>
+            <div class="filters" id="logFilters">
+              <button type="button" data-f="" class="on">All</button>
+              <button type="button" data-f="Requests">Requests</button>
+              <button type="button" data-f="Inventory">Inventory</button>
+              <button type="button" data-f="Allocation">Allocation</button>
+              <button type="button" data-f="Routing">Routing</button>
+              <button type="button" data-f="Delivery">Delivery</button>
+            </div>
+          </div>
+          <div class="panel-body flush" id="logTable"></div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        Disaster Relief Resource Allocation System &middot; Data Structures capstone, SIMATS Engineering
+      </footer>
+    </main>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
