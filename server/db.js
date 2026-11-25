@@ -109,11 +109,11 @@ async function connect() {
   } catch (err) {
     const hints = {
       ECONNREFUSED: 'MySQL server is not running on this computer',
-      ER_ACCESS_DENIED_ERROR: 'wrong MySQL user or password in .env',
+      ER_ACCESS_DENIED_ERROR: 'wrong MySQL user or password',
       ETIMEDOUT: 'database server did not answer (check host, port and firewall)',
       ENOTFOUND: 'DB_HOST in .env cannot be found',
     };
-    info.error = err.code ? `${err.code}: ${hints[err.code] || err.message}` : err.message;
+    info.error = err.code ? `${err.code}: ${hints[err.code] ? `${hints[err.code]} (${err.message})` : err.message}` : err.message;
     if (pool) await pool.end().catch(() => {});
     pool = null;
   }
